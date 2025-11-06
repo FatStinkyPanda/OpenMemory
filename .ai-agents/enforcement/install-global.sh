@@ -343,9 +343,14 @@ echo "Location: ${PROJECT_DIR}"
 echo "Global system: ${GLOBAL_DIR}"
 echo ""
 echo "Next steps:"
-echo "  1. Start OpenMemory backend: openmemory-start"
+echo "  1. Start all services (one command): openmemory-start"
 echo "  2. Begin coding - the system is active!"
 echo "  3. All actions will be tracked automatically"
+echo ""
+echo "Note: openmemory-start launches everything you need:"
+echo "  • OpenMemory Backend (port 8080)"
+echo "  • Universal Context Manager (port 8081)"
+echo "  • MCP Server (auto-connects to Claude Desktop)"
 echo ""
 SCRIPT
 
@@ -355,21 +360,170 @@ echo -e "${GREEN}✓ openmemory-init created${NC}"
 # openmemory-start
 cat > "${BIN_DIR}/openmemory-start" <<'SCRIPT'
 #!/bin/bash
-# Start OpenMemory backend server
+# Start OpenMemory backend server and Universal Context Manager
 
 GLOBAL_DIR="${HOME}/.openmemory-global"
-cd "${GLOBAL_DIR}/backend/backend"
+BACKEND_DIR="${GLOBAL_DIR}/backend/backend"
+CONTEXT_MANAGER_DIR="${GLOBAL_DIR}/context-injection/context-manager"
+LOGS_DIR="${GLOBAL_DIR}/logs"
 
-echo "Starting OpenMemory backend..."
-echo "Access at: http://localhost:8080"
-echo "Press Ctrl+C to stop"
+# Create logs directory if it doesn't exist
+mkdir -p "${LOGS_DIR}"
+
+# Colors
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+echo -e "${BLUE}=====================================================================${NC}"
+echo -e "${BLUE}Starting OpenMemory + AI Agents System${NC}"
+echo -e "${BLUE}=====================================================================${NC}"
 echo ""
 
-npm run dev
+# Check if Context Manager is installed
+CONTEXT_MANAGER_INSTALLED=false
+if [ -d "${CONTEXT_MANAGER_DIR}" ]; then
+    CONTEXT_MANAGER_INSTALLED=true
+fi
+
+# Start OpenMemory backend in background
+echo -e "${BLUE}[1/2] Starting OpenMemory Backend...${NC}"
+if pgrep -f "node.*openmemory.*server" > /dev/null; then
+    echo -e "${YELLOW}⚠ Backend already running${NC}"
+else
+    cd "${BACKEND_DIR}"
+    nohup npm run dev > "${LOGS_DIR}/backend.log" 2>&1 &
+    echo $! > "${GLOBAL_DIR}/backend.pid"
+    sleep 2
+
+    if pgrep -f "node.*openmemory.*server" > /dev/null; then
+        echo -e "${GREEN}✓ Backend started successfully${NC}"
+        echo "  Access at: http://localhost:8080"
+        echo "  Logs: ${LOGS_DIR}/backend.log"
+    else
+        echo -e "${YELLOW}✗ Backend may have failed to start${NC}"
+        echo "  Check logs: ${LOGS_DIR}/backend.log"
+    fi
+fi
+
+echo ""
+
+# Start Context Manager if installed
+if [ "$CONTEXT_MANAGER_INSTALLED" = true ]; then
+    echo -e "${BLUE}[2/2] Starting Universal Context Manager...${NC}"
+    if pgrep -f "node.*context-manager" > /dev/null; then
+        echo -e "${YELLOW}⚠ Context Manager already running${NC}"
+    else
+        cd "${CONTEXT_MANAGER_DIR}"
+        nohup npm start > "${LOGS_DIR}/context-manager.log" 2>&1 &
+        echo $! > "${GLOBAL_DIR}/context-manager.pid"
+        sleep 2
+
+        if pgrep -f "node.*context-manager" > /dev/null; then
+            echo -e "${GREEN}✓ Context Manager started successfully${NC}"
+            echo "  Access at: http://localhost:8081"
+            echo "  Logs: ${LOGS_DIR}/context-manager.log"
+        else
+            echo -e "${YELLOW}✗ Context Manager may have failed to start${NC}"
+            echo "  Check logs: ${LOGS_DIR}/context-manager.log"
+        fi
+    fi
+else
+    echo -e "${YELLOW}⚠ Context Manager not installed (optional component)${NC}"
+    echo "  To install: Run context injection installation"
+fi
+
+echo ""
+echo -e "${GREEN}=====================================================================${NC}"
+echo -e "${GREEN}✅ OpenMemory System Started${NC}"
+echo -e "${GREEN}=====================================================================${NC}"
+echo ""
+echo "Services running:"
+echo "  • OpenMemory Backend: http://localhost:8080"
+if [ "$CONTEXT_MANAGER_INSTALLED" = true ]; then
+    echo "  • Context Manager: http://localhost:8081"
+    echo "  • MCP Server: Available to Claude Desktop"
+fi
+echo ""
+echo "Management commands:"
+echo "  • Check status: openmemory-status"
+echo "  • Stop services: openmemory-stop"
+echo "  • View logs: tail -f ${LOGS_DIR}/*.log"
+echo ""
+echo "To initialize a new project: cd your-project && openmemory-init"
+echo ""
 SCRIPT
 
 chmod +x "${BIN_DIR}/openmemory-start"
 echo -e "${GREEN}✓ openmemory-start created${NC}"
+
+# openmemory-stop
+cat > "${BIN_DIR}/openmemory-stop" <<'SCRIPT'
+#!/bin/bash
+# Stop OpenMemory backend and Universal Context Manager
+
+GLOBAL_DIR="${HOME}/.openmemory-global"
+BACKEND_PID_FILE="${GLOBAL_DIR}/backend.pid"
+CONTEXT_MANAGER_PID_FILE="${GLOBAL_DIR}/context-manager.pid"
+
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+echo -e "${BLUE}Stopping OpenMemory + AI Agents System...${NC}"
+echo ""
+
+# Stop Backend
+if [ -f "${BACKEND_PID_FILE}" ]; then
+    PID=$(cat "${BACKEND_PID_FILE}")
+    if kill -0 "$PID" 2>/dev/null; then
+        echo "Stopping OpenMemory Backend (PID: $PID)..."
+        kill "$PID"
+        rm -f "${BACKEND_PID_FILE}"
+        echo -e "${GREEN}✓ Backend stopped${NC}"
+    else
+        echo -e "${YELLOW}⚠ Backend not running (stale PID file)${NC}"
+        rm -f "${BACKEND_PID_FILE}"
+    fi
+else
+    # Try pkill as fallback
+    if pkill -f "node.*openmemory.*server"; then
+        echo -e "${GREEN}✓ Backend stopped${NC}"
+    else
+        echo -e "${YELLOW}⚠ Backend not running${NC}"
+    fi
+fi
+
+# Stop Context Manager
+if [ -f "${CONTEXT_MANAGER_PID_FILE}" ]; then
+    PID=$(cat "${CONTEXT_MANAGER_PID_FILE}")
+    if kill -0 "$PID" 2>/dev/null; then
+        echo "Stopping Context Manager (PID: $PID)..."
+        kill "$PID"
+        rm -f "${CONTEXT_MANAGER_PID_FILE}"
+        echo -e "${GREEN}✓ Context Manager stopped${NC}"
+    else
+        echo -e "${YELLOW}⚠ Context Manager not running (stale PID file)${NC}"
+        rm -f "${CONTEXT_MANAGER_PID_FILE}"
+    fi
+else
+    # Try pkill as fallback
+    if pkill -f "node.*context-manager"; then
+        echo -e "${GREEN}✓ Context Manager stopped${NC}"
+    else
+        echo -e "${YELLOW}⚠ Context Manager not running${NC}"
+    fi
+fi
+
+echo ""
+echo -e "${GREEN}✅ All services stopped${NC}"
+SCRIPT
+
+chmod +x "${BIN_DIR}/openmemory-stop"
+echo -e "${GREEN}✓ openmemory-stop created${NC}"
 
 # openmemory-status
 cat > "${BIN_DIR}/openmemory-status" <<'SCRIPT'
@@ -379,18 +533,51 @@ cat > "${BIN_DIR}/openmemory-status" <<'SCRIPT'
 GLOBAL_DIR="${HOME}/.openmemory-global"
 REGISTRY="${GLOBAL_DIR}/projects/registry.json"
 
+# Colors
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
 echo "======================================================================"
 echo "OpenMemory + AI Agents - Global System Status"
 echo "======================================================================"
 echo ""
 echo "Installation: ${GLOBAL_DIR}"
 echo ""
+echo "Services:"
+echo "----------------------------------------------------------------------"
 
 # Check if backend is running
 if curl -s http://localhost:8080/health > /dev/null 2>&1; then
-    echo "✓ Backend: Running (http://localhost:8080)"
+    echo -e "${GREEN}✓${NC} OpenMemory Backend: Running (http://localhost:8080)"
 else
-    echo "✗ Backend: Not running (start with: openmemory-start)"
+    echo -e "${RED}✗${NC} OpenMemory Backend: Not running"
+fi
+
+# Check if Context Manager is running
+if [ -d "${GLOBAL_DIR}/context-injection/context-manager" ]; then
+    if curl -s http://localhost:8081/health > /dev/null 2>&1; then
+        echo -e "${GREEN}✓${NC} Context Manager: Running (http://localhost:8081)"
+    else
+        echo -e "${RED}✗${NC} Context Manager: Not running"
+    fi
+
+    # Check MCP server availability
+    if [ -f "${GLOBAL_DIR}/context-injection/mcp-server/dist/index.js" ]; then
+        echo -e "${GREEN}✓${NC} MCP Server: Installed (connects via Claude Desktop)"
+    else
+        echo -e "${YELLOW}⚠${NC} MCP Server: Not built"
+    fi
+else
+    echo -e "${YELLOW}⚠${NC} Context Injection: Not installed (optional)"
+fi
+
+# Show start/stop hint
+if ! curl -s http://localhost:8080/health > /dev/null 2>&1; then
+    echo ""
+    echo -e "${YELLOW}To start all services: openmemory-start${NC}"
 fi
 
 echo ""
@@ -589,16 +776,22 @@ echo "Global system installed at: ${GLOBAL_DIR}"
 echo ""
 echo "Available commands:"
 echo "  openmemory-init [dir]    Initialize new project"
-echo "  openmemory-start         Start OpenMemory backend"
+echo "  openmemory-start         Start all services (backend + context manager)"
+echo "  openmemory-stop          Stop all services"
 echo "  openmemory-status        Show system status"
 echo "  openmemory-list          List all projects"
 echo "  openmemory-watch         Project auto-detection watcher"
 echo ""
 echo "Quick start:"
-echo "  1. Start backend: openmemory-start"
-echo "  2. (Optional) Start watcher: openmemory-watch start"
-echo "  3. In new project: openmemory-init"
-echo "  4. Start coding - enforcement is active!"
+echo "  1. Start all services: openmemory-start"
+echo "     (Starts backend, context manager, and enables MCP server)"
+echo "  2. In new project: openmemory-init"
+echo "  3. Start coding - everything is tracked automatically!"
+echo ""
+echo "What openmemory-start launches:"
+echo "  • OpenMemory Backend (http://localhost:8080)"
+echo "  • Universal Context Manager (http://localhost:8081)"
+echo "  • MCP Server integration for Claude Desktop"
 echo ""
 echo "Auto-detection (optional):"
 echo "  The watcher can automatically detect and initialize new projects."
