@@ -71,15 +71,19 @@ source ~/.bashrc  # or ~/.zshrc
 ### 2. Start Services
 
 ```bash
-# Start OpenMemory backend (if not already running)
+# Start all services with one command (recommended)
 openmemory-start
 
-# Start Context Manager service
-context-manager-start
+# This automatically starts:
+#  • OpenMemory Backend (port 8080)
+#  • Context Manager (port 8081)
+#  • MCP Server (via Claude Desktop)
 
 # Check status
-context-manager-status
+openmemory-status
 ```
+
+**Note**: The `openmemory-start` command now automatically starts both the OpenMemory backend and the Context Manager service. You no longer need to start them separately!
 
 ### 3. Use With Your AI Tools
 
@@ -203,19 +207,37 @@ chmod +x ~/.openmemory-global/bin/ai-mytool
 
 ## Management Commands
 
-### Context Manager Service
+### Unified Service Management (Recommended)
 
 ```bash
-# Start service
-context-manager-start
+# Start all services (backend + context manager)
+openmemory-start
 
-# Stop service
-context-manager-stop
+# Stop all services
+openmemory-stop
 
-# Check status
-context-manager-status
+# Check status of all services
+openmemory-status
 
 # View logs
+tail -f ~/.openmemory-global/logs/*.log
+```
+
+### Individual Service Management (Advanced)
+
+If you need to manage services individually:
+
+```bash
+# Start Context Manager only
+context-manager-start
+
+# Stop Context Manager only
+context-manager-stop
+
+# Check Context Manager status only
+context-manager-status
+
+# View Context Manager logs
 tail -f ~/.openmemory-global/logs/context-manager.log
 ```
 
@@ -265,9 +287,8 @@ Location: `~/Library/Application Support/Claude/claude_desktop_config.json` (mac
 cd ~/my-project
 openmemory-init  # Initialize project if not already
 
-# Start services
+# Start all services (one command)
 openmemory-start
-context-manager-start
 
 # Use aider with automatic context
 ai-aider "Add authentication to the API"
@@ -285,12 +306,12 @@ ai-aider "Add authentication to the API"
 ### Example 2: Claude Desktop with MCP
 
 ```
-1. Start OpenMemory: openmemory-start
-2. Start Context Manager: context-manager-start
-3. Open Claude Desktop
-4. Start conversation
-5. Claude automatically has access to:
+1. Start all services: openmemory-start
+2. Open Claude Desktop
+3. Start conversation
+4. Claude automatically has access to:
    - All project context (as MCP resource)
+   - MCP Prompts for one-click context injection
    - Tools to record decisions/actions
 
 User: "What's the current state of this project?"
@@ -315,16 +336,25 @@ echo "User question: How do I add caching?" | cat <(echo "$context") - | some-ai
 
 ## Troubleshooting
 
-### Context Manager Won't Start
+### Services Won't Start
 
 ```bash
-# Check if port 8081 is already in use
-lsof -i :8081
+# Check system status
+openmemory-status
+
+# Check if ports are already in use
+lsof -i :8080  # Backend
+lsof -i :8081  # Context Manager
 
 # Check logs
+cat ~/.openmemory-global/logs/backend.log
 cat ~/.openmemory-global/logs/context-manager.log
 
-# Try starting manually to see errors
+# Try starting services manually to see errors
+cd ~/.openmemory-global/backend/backend
+npm run dev
+
+# In another terminal
 cd ~/.openmemory-global/context-injection/context-manager
 npm start
 ```
@@ -459,5 +489,14 @@ To add support for a new AI tool:
 ---
 
 **Last Updated**: 2025-11-06
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Status**: ✅ Production Ready
+
+## Recent Updates
+
+### Version 1.1.0 (2025-11-06)
+- ✅ **Unified Startup**: `openmemory-start` now automatically starts all services
+- ✅ **Single Command**: No need to manually start Context Manager separately
+- ✅ **Automatic Integration**: MCP Server, Context Manager, and Backend all start together
+- ✅ **Simplified Workflow**: One command to start, one command to stop
+- ✅ **Enhanced Status**: `openmemory-status` shows all service states

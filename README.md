@@ -166,7 +166,7 @@ cd openmemory
 # Reload shell
 source ~/.bashrc  # or source ~/.zshrc
 
-# Start backend (one time, serves all projects)
+# Start all services (one command, serves all projects)
 openmemory-start
 ```
 </details>
@@ -220,7 +220,8 @@ openmemory-watch start  # Starts background watcher
 
 **Management commands:**
 - `openmemory-init [dir]` - Initialize new project
-- `openmemory-start` - Start backend server
+- `openmemory-start` - Start all services (backend, context manager, MCP server)
+- `openmemory-stop` - Stop all services
 - `openmemory-status` - Show system status
 - `openmemory-list` - List all projects
 - `openmemory-watch` - Control auto-detection watcher
