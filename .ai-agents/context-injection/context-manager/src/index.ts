@@ -67,18 +67,18 @@ async function fetchProjectContext(projectName: string): Promise<any> {
 
     // Query recent history
     const historyResponse = await fetch(`${OPENMEMORY_URL}/ai-agents/history/${projectName}`);
-    const history = historyResponse.ok ? await historyResponse.json() : null;
+    const history = historyResponse.ok ? await historyResponse.json() as any : null;
 
     // Query consistency validation
     const validationResponse = await fetch(`${OPENMEMORY_URL}/ai-agents/validate/consistency/${projectName}`);
-    const validation = validationResponse.ok ? await validationResponse.json() : null;
+    const validation = validationResponse.ok ? await validationResponse.json() as any : null;
 
     return {
       project_name: projectName,
-      state: state?.state || null,
-      mode: state?.mode || 'INITIALIZE',
-      history: history?.history || [],
-      history_count: history?.count || 0,
+      state: (state as any)?.state || null,
+      mode: (state as any)?.mode || 'INITIALIZE',
+      history: (history as any)?.history || [],
+      history_count: (history as any)?.count || 0,
       validation: validation || null,
       timestamp: new Date().toISOString(),
     };

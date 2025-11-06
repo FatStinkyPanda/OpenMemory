@@ -44,7 +44,7 @@ function loadProjectRegistry(): any[] {
 async function fetchContext(projectName: string): Promise<string> {
   try {
     const response = await fetch(`${CONTEXT_MANAGER_URL}/context/${projectName}?format=markdown`);
-    const data = await response.json();
+    const data = await response.json() as any;
     return data.context || 'No context available';
   } catch (error: any) {
     console.error(`[MCP Server] Error fetching context for ${projectName}:`, error.message);
@@ -328,7 +328,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'query_history': {
         const { project_name, limit = 10 } = args as any;
         const response = await fetch(`${OPENMEMORY_URL}/ai-agents/history/${project_name}`);
-        const data = await response.json();
+        const data = await response.json() as any;
 
         const history = data.history || [];
         const limited = history.slice(0, limit);
